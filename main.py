@@ -238,24 +238,6 @@ class ПростоеМеню(View):
         self.add_item(Button(label="🔄 Перекуп", style=discord.ButtonStyle.primary, custom_id="resell"))
         self.add_item(Button(label="🗑️ Очистка данных", style=discord.ButtonStyle.danger, custom_id="clean_all"))
 
-    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
-        value = select.values[0]
-        view = БалансView(self.user_id)
-        if value == "доход":
-            await interaction.response.send_modal(ДоходModal(self.user_id))
-        elif value == "расход":
-            await interaction.response.send_modal(РасходModal(self.user_id))
-        elif value == "аренда":
-            await interaction.response.send_modal(АрендаModal(self.user_id))
-        elif value == "баланс":
-            await view.показать_баланс(interaction, None)
-        elif value == "начальный":
-            await view.установить_баланс(interaction, None)
-        elif value == "история":
-            await view.история_операций(interaction, None)
-        elif value == "очистка":
-            await interaction.response.send_message("🧼 Очистка данных:", view=ОчисткаView(self.user_id), ephemeral=True)
-
 @bot.command(name="меню")
 async def меню(ctx):
     embed = discord.Embed(
