@@ -194,27 +194,50 @@ class БалансView(View):
         аренды = cursor.fetchall()
         msg += "\n\n🚗 Аренда:\n" + "\n".join([f"{м}: {ч}ч → {п}₽ ({д})" for м, ч, п, д in аренды]) if аренды else "\nНет аренды"
         await interaction.response.send_message(msg, ephemeral=True)
+        
+class ПерекупModal(Modal):
+    def __init__(self, user_id):
+        super().__init__(title="Учёт перекупа")
+        self.user_id = str(user_id)
+        self.товар = TextInput(label="Что перекупили?", required=True)
+        self.покупка = TextInput(label="Цена покупки", required=True, placeholder="Например: 1000")
+        self.продажа = TextInput(label="Цена продажи", required=True, placeholder="Например: 1500")
+        self.add_item(self.товар)
+        self.add_item(self.покупка)
+        self.add_item(self.продажа)
 
+    async def on_submit(self, interaction):
+        дата = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        покупка = float(self.покупка.value)
+        продажа = float(self.продажа.value)
+        прибыль = продажа - покупка
+
+        if прибыль >= 0:
+            cursor.execute("INSERT INTO доходы (user_id, сумма, описание, дата) VALUES (%s, %s, %s, %s)",
+                           (self.user_id, прибыль, f"🔄 Перекуп: {self.товар.value}", дата))
+            сообщение = f"💰 Сделка учтена! Прибыль: {прибыль}₽"
+        else:
+            cursor.execute("INSERT INTO расходы (user_id, сумма, описание, дата) VALUES (%s, %s, %s, %s)",
+                           (self.user_id, abs(прибыль), f"🔄 Убыток при перекупе: {self.товар.value}", дата))
+            сообщение = f"📉 Сделка в убыток! Потери: {abs(прибыль)}₽"
+
+        conn.commit()
+        await interaction.response.send_message(сообщение, ephemeral=True)
+        
 # Главное меню
-class ГлавноеМеню(View):
+class ПростоеМеню(View):
     def __init__(self, user_id):
         super().__init__(timeout=None)
         self.user_id = str(user_id)
+        self.add_item(Button(label="💵 Добавить доход", style=discord.ButtonStyle.success, custom_id="add_income"))
+        self.add_item(Button(label="💸 Добавить расход", style=discord.ButtonStyle.danger, custom_id="add_expense"))
+        self.add_item(Button(label="🚗 Учесть аренду", style=discord.ButtonStyle.primary, custom_id="add_rent"))
+        self.add_item(Button(label="📊 Показать баланс", style=discord.ButtonStyle.secondary, custom_id="show_balance"))
+        self.add_item(Button(label="💰 Установить начальный баланс", style=discord.ButtonStyle.secondary, custom_id="set_start"))
+        self.add_item(Button(label="📝 История операций", style=discord.ButtonStyle.secondary, custom_id="history"))
+        self.add_item(Button(label="🔄 Перекуп", style=discord.ButtonStyle.primary, custom_id="resell"))
+        self.add_item(Button(label="🗑️ Очистка данных", style=discord.ButtonStyle.danger, custom_id="clean_all"))
 
-    @discord.ui.select(
-        placeholder="Выберите действие",
-        min_values=1,
-        max_values=1,
-        options=[
-            discord.SelectOption(label="📥 Добавить доход", value="доход"),
-            discord.SelectOption(label="📤 Добавить расход", value="расход"),
-            discord.SelectOption(label="🚗 Учесть аренду", value="аренда"),
-            discord.SelectOption(label="💰 Показать баланс", value="баланс"),
-            discord.SelectOption(label="🎯 Установить начальный баланс", value="начальный"),
-            discord.SelectOption(label="📒 История операций", value="история"),
-            discord.SelectOption(label="🧹 Очистка данных", value="очистка")
-        ]
-    )
     async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
         value = select.values[0]
         view = БалансView(self.user_id)
@@ -240,8 +263,36 @@ async def меню(ctx):
         description="Теперь не придётся помнить о доходах и расходах — бот сделает это сам.",
         color=discord.Color.purple()
     )
-    embed.set_image(url="https://i.imgur.com/jOmamcY.png")  # можешь заменить на свою ссылку
-    await ctx.send(embed=embed, view=ГлавноеМеню(ctx.author.id))
+    embed.set_image(url="https://i.imgur.com/jOmamcY.png")
+    await ctx.send(embed=embed, view=ПростоеМеню(ctx.author.id))
+
+@bot.event
+async def on_interaction(interaction):
+    if not interaction.type.name == "component":
+        return
+
+    custom_id = interaction.data.get("custom_id")
+    user_id = str(interaction.user.id)
+
+    if custom_id == "add_income":
+        await interaction.response.send_modal(ДоходModal(user_id))
+    elif custom_id == "add_expense":
+        await interaction.response.send_modal(РасходModal(user_id))
+    elif custom_id == "add_rent":
+        await interaction.response.send_modal(АрендаModal(user_id))
+    elif custom_id == "resell":
+        await interaction.response.send_modal(ПерекупModal(user_id))    
+    elif custom_id == "show_balance":
+        view = БалансView(user_id)
+        await view.показать_баланс(interaction, None)
+    elif custom_id == "set_start":
+        view = БалансView(user_id)
+        await view.установить_баланс(interaction, None)
+    elif custom_id == "history":
+        view = БалансView(user_id)
+        await view.история_операций(interaction, None)    
+    elif custom_id == "clean_all":
+        await interaction.response.send_message("🧼 Очистка данных:", view=ОчисткаView(user_id), ephemeral=True)
 
 # Запуск
 if __name__ == '__main__':
