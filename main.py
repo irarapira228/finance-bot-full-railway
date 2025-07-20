@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.ui import View, Modal, TextInput
+from discord.ui import View, Modal, TextInput, Button
 import psycopg2
 import os
 from datetime import datetime
