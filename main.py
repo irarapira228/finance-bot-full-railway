@@ -336,26 +336,32 @@ async def on_interaction(interaction):
     elif custom_id == "resell":
         await interaction.response.send_modal(ПерекупModal(user_id))
     elif custom_id == "resell_complete":
-    cursor.execute("SELECT id, товар, цена_покупки FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
-    сделки = cursor.fetchall()
+        cursor.execute("SELECT id, товар, цена_покупки FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
+        сделки = cursor.fetchall()
 
-    if not сделки:
-        await interaction.response.send_message("❌ У вас нет незавершённых покупок.", ephemeral=True)
-        return
+        if not сделки:
+            await interaction.response.send_message("❌ У вас нет незавершённых покупок.", ephemeral=True)
+            return
 
-    if len(сделки) == 1:
-        id_, товар, покупка = сделки[0]
-        await interaction.response.send_modal(ЗавершитьСделкуModal(user_id, id_, товар, покупка))
-    else:
-        # Выбор сделки, если их несколько
-        view = View()
-        for id_, товар, покупка in сделки:
-            button = Button(label=f"{товар} ({покупка}₽)", style=discord.ButtonStyle.secondary, custom_id=f"sell_{id_}")
-            async def callback(inter, id_=id_, товар=товар, покупка=покупка):
-                await inter.response.send_modal(ЗавершитьСделкуModal(user_id, id_, товар, покупка))
-            button.callback = callback
-            view.add_item(button)
-        await interaction.response.send_message("Выберите, что хотите продать:", view=view, ephemeral=True)
+        if len(сделки) == 1:
+            id_, товар, покупка = сделки[0]
+            await interaction.response.send_modal(ЗавершитьСделкуModal(user_id, id_, товар, покупка))
+        else:
+            view = View()
+            for id_, товар, покупка in сделки:
+                button = Button(
+                    label=f"{товар} ({покупка}₽)",
+                    style=discord.ButtonStyle.secondary,
+                    custom_id=f"sell_{id_}"
+                )
+
+                async def callback(inter, id_=id_, товар=товар, покупка=покупка):
+                    await inter.response.send_modal(ЗавершитьСделкуModal(user_id, id_, товар, покупка))
+
+                button.callback = callback
+                view.add_item(button)
+
+            await interaction.response.send_message("Выберите, что хотите продать:", view=view, ephemeral=True)
     elif custom_id == "resell_list":
     cursor.execute("SELECT товар, цена_покупки, дата FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
     записи = cursor.fetchall()
