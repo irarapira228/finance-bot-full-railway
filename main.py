@@ -100,18 +100,22 @@ class АрендаModal(Modal):
         super().__init__(title="Учесть аренду")
         self.user_id = user_id
         self.машина = TextInput(label="Машина", required=True)
-        self.часы = TextInput(label="Часы", required=True)
-        self.прибыль = TextInput(label="Прибыль", required=True)
+        self.часы = TextInput(label="Часы аренды", required=True, placeholder="Например: 2.5")
+        self.ставка = TextInput(label="Цена за час аренды", required=True, placeholder="Например: 300")
         self.add_item(self.машина)
         self.add_item(self.часы)
-        self.add_item(self.прибыль)
+        self.add_item(self.ставка)
 
     async def on_submit(self, interaction):
         дата = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        часы = float(self.часы.value)
+        ставка = float(self.ставка.value)
+        прибыль = часы * ставка
+
         cursor.execute("INSERT INTO аренда (user_id, машина, часы, прибыль, дата) VALUES (%s, %s, %s, %s, %s)",
-                       (str(self.user_id), self.машина.value, float(self.часы.value), float(self.прибыль.value), дата))
+                       (str(self.user_id), self.машина.value, часы, прибыль, дата))
         conn.commit()
-        await interaction.response.send_message("🚗 Аренда учтена!", ephemeral=True)
+        await interaction.response.send_message(f"🚗 Аренда учтена! Прибыль: {прибыль}₽", ephemeral=True)
 
 # Очистка
 class ОчисткаView(View):
