@@ -319,22 +319,47 @@ async def меню(ctx):
 
 @bot.event
 async def on_interaction(interaction):
-    if not interaction.type.name == "component":
+    user_id = str(interaction.user.id)
+
+    if not interaction.data or "custom_id" not in interaction.data:
         return
 
-    custom_id = interaction.data.get("custom_id")
-    user_id = str(interaction.user.id)
+    custom_id = interaction.data["custom_id"]
 
     if custom_id == "add_income":
         await interaction.response.send_modal(ДоходModal(user_id))
+
     elif custom_id == "add_expense":
         await interaction.response.send_modal(РасходModal(user_id))
-    elif custom_id == "add_rent":
+
+    elif custom_id == "set_balance":
+        await interaction.response.send_modal(БалансModal(user_id))
+
+    elif custom_id == "rental_income":
         await interaction.response.send_modal(АрендаModal(user_id))
-    elif custom_id == "resell_pending":
-        await interaction.response.send_modal(ПокупкаModal(user_id))
-    elif custom_id == "resell":
+
+    elif custom_id == "show_balance":
+        view = БалансView(user_id)
+        await view.показать_баланс(interaction, None)
+
+    elif custom_id == "show_history":
+        await показать_историю(interaction, user_id)
+
+    elif custom_id == "clear_income":
+        await очистить_категорию(interaction, user_id, "доходы")
+
+    elif custom_id == "clear_expense":
+        await очистить_категорию(interaction, user_id, "расходы")
+
+    elif custom_id == "clear_rental":
+        await очистить_категорию(interaction, user_id, "аренда")
+
+    elif custom_id == "clear_all":
+        await очистить_все(interaction, user_id)
+
+    elif custom_id == "resell_start":
         await interaction.response.send_modal(ПерекупModal(user_id))
+
     elif custom_id == "resell_complete":
         cursor.execute("SELECT id, товар, цена_покупки FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
         сделки = cursor.fetchall()
@@ -362,27 +387,17 @@ async def on_interaction(interaction):
                 view.add_item(button)
 
             await interaction.response.send_message("Выберите, что хотите продать:", view=view, ephemeral=True)
+
     elif custom_id == "resell_list":
         cursor.execute("SELECT товар, цена_покупки, дата FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
         записи = cursor.fetchall()
 
-    if not записи:
-        await interaction.response.send_message("🔍 У вас нет незавершённых покупок.", ephemeral=True)
-    else:
-        lines = [f"🔹 {товар} — {цена}₽ (📅 {дата})" for товар, цена, дата in записи]
-        текст = "\n".join(lines)
-        await interaction.response.send_message(f"📋 **Ваши незавершённые покупки:**\n{текст}", ephemeral=True)    
-    elif custom_id == "show_balance":
-        view = БалансView(user_id)
-        await view.показать_баланс(interaction, None)
-    elif custom_id == "set_start":
-        view = БалансView(user_id)
-        await view.установить_баланс(interaction, None)
-    elif custom_id == "history":
-        view = БалансView(user_id)
-        await view.история_операций(interaction, None)    
-    elif custom_id == "clean_all":
-        await interaction.response.send_message("🧼 Очистка данных:", view=ОчисткаView(user_id), ephemeral=True)
+        if not записи:
+            await interaction.response.send_message("🔍 У вас нет незавершённых покупок.", ephemeral=True)
+        else:
+            lines = [f"🔹 {товар} — {цена}₽ (📅 {дата})" for товар, цена, дата in записи]
+            текст = "\n".join(lines)
+            await interaction.response.send_message(f"📋 **Ваши незавершённые покупки:**\n{текст}", ephemeral=True)
 
 # Запуск
 if __name__ == '__main__':
