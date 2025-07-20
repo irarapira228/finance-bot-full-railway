@@ -363,8 +363,8 @@ async def on_interaction(interaction):
 
             await interaction.response.send_message("Выберите, что хотите продать:", view=view, ephemeral=True)
     elif custom_id == "resell_list":
-    cursor.execute("SELECT товар, цена_покупки, дата FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
-    записи = cursor.fetchall()
+        cursor.execute("SELECT товар, цена_покупки, дата FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
+        записи = cursor.fetchall()
 
     if not записи:
         await interaction.response.send_message("🔍 У вас нет незавершённых покупок.", ephemeral=True)
