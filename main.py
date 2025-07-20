@@ -377,20 +377,20 @@ async def on_interaction(interaction):
         cursor.execute("SELECT сумма, описание, дата FROM доходы WHERE user_id = %s ORDER BY дата DESC LIMIT 5", (user_id,))
         доходы = cursor.fetchall()
         if доходы:
-        history_text += "**📈 Доходы:**\n"
-        for сумма, описание, дата in доходы:
-            history_text += f"➕ {сумма}₽ — {описание} ({дата})\n"
+            history_text += "**📈 Доходы:**\n"
+            for сумма, описание, дата in доходы:
+                history_text += f"➕ {сумма}₽ — {описание} ({дата})\n"
         else:
-        history_text += "📈 Доходы: ничего нет\n"
+            history_text += "📈 Доходы: ничего нет\n"
 
         cursor.execute("SELECT сумма, описание, дата FROM расходы WHERE user_id = %s ORDER BY дата DESC LIMIT 5", (user_id,))
         расходы = cursor.fetchall()
         if расходы:
-        history_text += "\n**📉 Расходы:**\n"
-        for сумма, описание, дата in расходы:
-            history_text += f"➖ {сумма}₽ — {описание} ({дата})\n"
+            history_text += "\n**📉 Расходы:**\n"
+            for сумма, описание, дата in расходы:
+                history_text += f"➖ {сумма}₽ — {описание} ({дата})\n"
         else:
-        history_text += "\n📉 Расходы: ничего нет\n"
+            history_text += "\n📉 Расходы: ничего нет\n"
 
         await interaction.response.send_message(history_text, ephemeral=True)
     
