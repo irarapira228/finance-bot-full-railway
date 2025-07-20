@@ -335,7 +335,7 @@ async def on_interaction(interaction):
     elif custom_id == "set_balance":
         await interaction.response.send_modal(БалансModal(user_id))
 
-    elif custom_id == "rental_income":
+    elif custom_id == "add_rent":
         await interaction.response.send_modal(АрендаModal(user_id))
 
     elif custom_id == "show_balance":
@@ -357,8 +357,11 @@ async def on_interaction(interaction):
     elif custom_id == "clear_all":
         await очистить_все(interaction, user_id)
 
-    elif custom_id == "resell_start":
+    elif custom_id == "resell":
         await interaction.response.send_modal(ПерекупModal(user_id))
+        
+    elif custom_id == "resell_pending":
+        await interaction.response.send_modal(ПокупкаModal(user_id))    
 
     elif custom_id == "resell_complete":
         cursor.execute("SELECT id, товар, цена_покупки FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
