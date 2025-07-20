@@ -199,7 +199,7 @@ class БалансView(View):
 class ГлавноеМеню(View):
     def __init__(self, user_id):
         super().__init__(timeout=None)
-        self.user_id = user_id
+        self.user_id = str(user_id)
 
     @discord.ui.select(
         placeholder="Выберите действие",
