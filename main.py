@@ -361,8 +361,39 @@ async def on_interaction(interaction):
         await interaction.response.send_modal(ПерекупModal(user_id))
         
     elif custom_id == "resell_pending":
-        await interaction.response.send_modal(ПокупкаModal(user_id))    
+        await interaction.response.send_modal(ПокупкаModal(user_id))
+        
+    elif custom_id == "clear_all":
+        cursor.execute("DELETE FROM доходы WHERE user_id = %s", (user_id,))
+        cursor.execute("DELETE FROM расходы WHERE user_id = %s", (user_id,))
+        cursor.execute("DELETE FROM аренда WHERE user_id = %s", (user_id,))
+        cursor.execute("DELETE FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
+        conn.commit()
+        await interaction.response.send_message("🧹 Все данные очищены.", ephemeral=True)
+    
+    elif custom_id == "history":
+        history_text = ""
 
+        cursor.execute("SELECT сумма, описание, дата FROM доходы WHERE user_id = %s ORDER BY дата DESC LIMIT 5", (user_id,))
+        доходы = cursor.fetchall()
+        if доходы:
+        history_text += "**📈 Доходы:**\n"
+        for сумма, описание, дата in доходы:
+            history_text += f"➕ {сумма}₽ — {описание} ({дата})\n"
+        else:
+        history_text += "📈 Доходы: ничего нет\n"
+
+        cursor.execute("SELECT сумма, описание, дата FROM расходы WHERE user_id = %s ORDER BY дата DESC LIMIT 5", (user_id,))
+        расходы = cursor.fetchall()
+        if расходы:
+        history_text += "\n**📉 Расходы:**\n"
+        for сумма, описание, дата in расходы:
+            history_text += f"➖ {сумма}₽ — {описание} ({дата})\n"
+        else:
+        history_text += "\n📉 Расходы: ничего нет\n"
+
+        await interaction.response.send_message(history_text, ephemeral=True)
+    
     elif custom_id == "resell_complete":
         cursor.execute("SELECT id, товар, цена_покупки FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
         сделки = cursor.fetchall()
