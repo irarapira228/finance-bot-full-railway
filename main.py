@@ -345,18 +345,6 @@ async def on_interaction(interaction):
     elif custom_id == "show_history":
         await показать_историю(interaction, user_id)
 
-    elif custom_id == "clear_income":
-        await очистить_категорию(interaction, user_id, "доходы")
-
-    elif custom_id == "clear_expense":
-        await очистить_категорию(interaction, user_id, "расходы")
-
-    elif custom_id == "clear_rental":
-        await очистить_категорию(interaction, user_id, "аренда")
-
-    elif custom_id == "clear_all":
-        await очистить_все(interaction, user_id)
-
     elif custom_id == "resell":
         await interaction.response.send_modal(ПерекупModal(user_id))
         
@@ -364,13 +352,38 @@ async def on_interaction(interaction):
         await interaction.response.send_modal(ПокупкаModal(user_id))
         
     elif custom_id == "clear_all":
+        view = View(timeout=60)
+        view.add_item(Button(label="Доходы", style=discord.ButtonStyle.secondary, custom_id="clear_income"))
+        view.add_item(Button(label="Расходы", style=discord.ButtonStyle.secondary, custom_id="clear_expense"))
+        view.add_item(Button(label="Аренду", style=discord.ButtonStyle.secondary, custom_id="clear_rent"))
+        view.add_item(Button(label="Очистить всё", style=discord.ButtonStyle.danger, custom_id="clear_everything"))
+
+        await interaction.response.send_message("Что вы хотите удалить? 👇", view=view, ephemeral=True)
+        
+    elif custom_id == "clear_income":
+        cursor.execute("DELETE FROM доходы WHERE user_id = %s", (user_id,))
+        conn.commit()
+        await interaction.response.send_message("✅ Доходы удалены.", ephemeral=True)
+
+    elif custom_id == "clear_expense":
+        cursor.execute("DELETE FROM расходы WHERE user_id = %s", (user_id,))
+        conn.commit()
+        await interaction.response.send_message("✅ Расходы удалены.", ephemeral=True)
+
+    elif custom_id == "clear_rent":
+        cursor.execute("DELETE FROM аренда WHERE user_id = %s", (user_id,))
+        conn.commit()
+        await interaction.response.send_message("✅ Данные аренды удалены.", ephemeral=True)
+
+    elif custom_id == "clear_everything":
         cursor.execute("DELETE FROM доходы WHERE user_id = %s", (user_id,))
         cursor.execute("DELETE FROM расходы WHERE user_id = %s", (user_id,))
         cursor.execute("DELETE FROM аренда WHERE user_id = %s", (user_id,))
         cursor.execute("DELETE FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
+        cursor.execute("UPDATE user_data SET начальный_баланс = 0 WHERE user_id = %s", (user_id,))
         conn.commit()
         await interaction.response.send_message("🧹 Все данные очищены.", ephemeral=True)
-    
+       
     elif custom_id == "history":
         history_text = ""
 
