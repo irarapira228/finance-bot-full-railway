@@ -22,6 +22,15 @@ cursor.execute('''
     );
 ''')
 cursor.execute('''
+    CREATE TABLE IF NOT EXISTS незавершённые_сделки (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT,
+        товар TEXT,
+        цена_покупки REAL,
+        дата TEXT
+    );
+''')
+cursor.execute('''
     CREATE TABLE IF NOT EXISTS доходы (
         id SERIAL PRIMARY KEY,
         user_id TEXT,
@@ -195,6 +204,63 @@ class БалансView(View):
         msg += "\n\n🚗 Аренда:\n" + "\n".join([f"{м}: {ч}ч → {п}₽ ({д})" for м, ч, п, д in аренды]) if аренды else "\nНет аренды"
         await interaction.response.send_message(msg, ephemeral=True)
         
+class ПокупкаModal(Modal):
+    def __init__(self, user_id):
+        super().__init__(title="Фиксация покупки")
+        self.user_id = str(user_id)
+        self.товар = TextInput(label="Что купили?", required=True)
+        self.покупка = TextInput(label="Цена покупки", required=True, placeholder="Например: 1200")
+        self.add_item(self.товар)
+        self.add_item(self.покупка)
+
+    async def on_submit(self, interaction):
+        дата = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        товар = self.товар.value
+        покупка = float(self.покупка.value)
+
+        cursor.execute(
+            "INSERT INTO незавершённые_сделки (user_id, товар, цена_покупки, дата) VALUES (%s, %s, %s, %s)",
+            (self.user_id, товар, покупка, дата)
+        )
+        conn.commit()
+
+        await interaction.response.send_message(f"📝 Зафиксировано: {товар} куплен за {покупка}₽", ephemeral=True)
+        
+class ЗавершитьСделкуModal(Modal):
+    def __init__(self, user_id, сделка_id, товар, покупка):
+        super().__init__(title="Продажа перекупа")
+        self.user_id = str(user_id)
+        self.сделка_id = сделка_id
+        self.товар = товар
+        self.покупка = покупка
+
+        self.продажа = TextInput(label="Цена продажи", required=True, placeholder="Например: 1500")
+        self.add_item(self.продажа)
+
+    async def on_submit(self, interaction):
+        продажа = float(self.продажа.value)
+        прибыль = продажа - self.покупка
+        дата = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if прибыль >= 0:
+            cursor.execute(
+                "INSERT INTO доходы (user_id, сумма, описание, дата) VALUES (%s, %s, %s, %s)",
+                (self.user_id, прибыль, f"🔄 Перекуп (продажа): {self.товар}", дата)
+            )
+            msg = f"💰 Продано: {self.товар} → прибыль {прибыль}₽"
+        else:
+            cursor.execute(
+                "INSERT INTO расходы (user_id, сумма, описание, дата) VALUES (%s, %s, %s, %s)",
+                (self.user_id, abs(прибыль), f"🔄 Убыток при перекупе: {self.товар}", дата)
+            )
+            msg = f"📉 Продано: {self.товар} → убыток {abs(прибыль)}₽"
+
+        # Удаляем завершённую сделку
+        cursor.execute("DELETE FROM незавершённые_сделки WHERE id = %s", (self.сделка_id,))
+        conn.commit()
+
+        await interaction.response.send_message(msg, ephemeral=True)        
+        
 class ПерекупModal(Modal):
     def __init__(self, user_id):
         super().__init__(title="Учёт перекупа")
@@ -234,6 +300,9 @@ class ПростоеМеню(View):
         self.add_item(Button(label="🚗 Учесть аренду", style=discord.ButtonStyle.primary, custom_id="add_rent"))
         self.add_item(Button(label="📊 Показать баланс", style=discord.ButtonStyle.secondary, custom_id="show_balance"))
         self.add_item(Button(label="💰 Установить начальный баланс", style=discord.ButtonStyle.secondary, custom_id="set_start"))
+        self.add_item(Button(label="➕ Куплено", style=discord.ButtonStyle.primary, custom_id="resell_pending"))
+        self.add_item(Button(label="✅ Продать", style=discord.ButtonStyle.success, custom_id="resell_complete"))
+        self.add_item(Button(label="📋 Мои покупки", style=discord.ButtonStyle.secondary, custom_id="resell_list"))
         self.add_item(Button(label="📝 История операций", style=discord.ButtonStyle.secondary, custom_id="history"))
         self.add_item(Button(label="🔄 Перекуп", style=discord.ButtonStyle.primary, custom_id="resell"))
         self.add_item(Button(label="🗑️ Очистка данных", style=discord.ButtonStyle.danger, custom_id="clean_all"))
@@ -262,8 +331,41 @@ async def on_interaction(interaction):
         await interaction.response.send_modal(РасходModal(user_id))
     elif custom_id == "add_rent":
         await interaction.response.send_modal(АрендаModal(user_id))
+    elif custom_id == "resell_pending":
+        await interaction.response.send_modal(ПокупкаModal(user_id))
     elif custom_id == "resell":
-        await interaction.response.send_modal(ПерекупModal(user_id))    
+        await interaction.response.send_modal(ПерекупModal(user_id))
+    elif custom_id == "resell_complete":
+    cursor.execute("SELECT id, товар, цена_покупки FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
+    сделки = cursor.fetchall()
+
+    if not сделки:
+        await interaction.response.send_message("❌ У вас нет незавершённых покупок.", ephemeral=True)
+        return
+
+    if len(сделки) == 1:
+        id_, товар, покупка = сделки[0]
+        await interaction.response.send_modal(ЗавершитьСделкуModal(user_id, id_, товар, покупка))
+    else:
+        # Выбор сделки, если их несколько
+        view = View()
+        for id_, товар, покупка in сделки:
+            button = Button(label=f"{товар} ({покупка}₽)", style=discord.ButtonStyle.secondary, custom_id=f"sell_{id_}")
+            async def callback(inter, id_=id_, товар=товар, покупка=покупка):
+                await inter.response.send_modal(ЗавершитьСделкуModal(user_id, id_, товар, покупка))
+            button.callback = callback
+            view.add_item(button)
+        await interaction.response.send_message("Выберите, что хотите продать:", view=view, ephemeral=True)
+    elif custom_id == "resell_list":
+    cursor.execute("SELECT товар, цена_покупки, дата FROM незавершённые_сделки WHERE user_id = %s", (user_id,))
+    записи = cursor.fetchall()
+
+    if not записи:
+        await interaction.response.send_message("🔍 У вас нет незавершённых покупок.", ephemeral=True)
+    else:
+        lines = [f"🔹 {товар} — {цена}₽ (📅 {дата})" for товар, цена, дата in записи]
+        текст = "\n".join(lines)
+        await interaction.response.send_message(f"📋 **Ваши незавершённые покупки:**\n{текст}", ephemeral=True)    
     elif custom_id == "show_balance":
         view = БалансView(user_id)
         await view.показать_баланс(interaction, None)
