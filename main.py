@@ -305,7 +305,7 @@ class ПростоеМеню(View):
         self.add_item(Button(label="📋 Мои покупки", style=discord.ButtonStyle.secondary, custom_id="resell_list"))
         self.add_item(Button(label="📝 История операций", style=discord.ButtonStyle.secondary, custom_id="history"))
         self.add_item(Button(label="🔄 Перекуп", style=discord.ButtonStyle.primary, custom_id="resell"))
-        self.add_item(Button(label="🗑️ Очистка данных", style=discord.ButtonStyle.danger, custom_id="clean_all"))
+        self.add_item(Button(label="🗑️ Очистка данных", style=discord.ButtonStyle.danger, custom_id="clear_all"))
 
 @bot.command(name="меню")
 async def меню(ctx):
